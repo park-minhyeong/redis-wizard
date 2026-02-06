@@ -19,7 +19,7 @@ export interface RedisWizardConfig {
 /**
  * Redis Wizard 인스턴스 인터페이스
  */
-export interface RedisWizard<T = any> {
+export interface RedisWizard<T = any, AutoSetKeys extends keyof T = never> {
   /**
    * 키에 해당하는 값을 조회합니다.
    * @param key - 조회할 키 (table 프리픽스는 자동 추가)
@@ -30,10 +30,10 @@ export interface RedisWizard<T = any> {
   /**
    * 키-값 쌍을 저장합니다.
    * @param key - 저장할 키 (table 프리픽스는 자동 추가)
-   * @param value - 저장할 값 (객체는 자동 직렬화)
+   * @param value - 저장할 값 (객체는 자동 직렬화, AutoSetKeys는 제외됨)
    * @param expireSeconds - 만료 시간(초), 지정하지 않으면 config.cacheExpired 사용
    */
-  create(key: string, value: T, expireSeconds?: number): Promise<void>;
+  create(key: string, value: Omit<T, AutoSetKeys>, expireSeconds?: number): Promise<void>;
 
   /**
    * 키의 값을 부분 업데이트합니다.
@@ -85,12 +85,19 @@ export interface RedisWizard<T = any> {
  *   status: 'draft' | 'published';
  * }
  * 
+ * // AutoSetKeys 없이 사용
  * const redis = createRedis<Application>({
  *   table: "draft:applications",
  *   cacheExpired: 10000,
  * });
  * 
- * await redis.create("app-123", { id: "app-123", title: "My App", status: "draft" });
+ * // AutoSetKeys 지정 (id는 자동 설정되므로 create에서 제외)
+ * const redis = createRedis<Application, "id">({
+ *   table: "draft:applications",
+ *   cacheExpired: 10000,
+ * });
+ * 
+ * await redis.create("app-123", { title: "My App", status: "draft" }); // id 제외
  * const app = await redis.read("app-123");
  * await redis.update("app-123", { status: "published" });
  * await redis.delete("app-123");
@@ -99,9 +106,9 @@ export interface RedisWizard<T = any> {
  * @param config - Redis Wizard 설정
  * @returns Redis Wizard 인스턴스
  */
-export function createRedis<T = any>(
+export function createRedis<T = any, AutoSetKeys extends keyof T = never>(
   config: RedisWizardConfig
-): RedisWizard<T> {
+): RedisWizard<T, AutoSetKeys> {
   const { table, cacheExpired } = config;
 
   return {
@@ -109,8 +116,8 @@ export function createRedis<T = any>(
       return await read<T>(table, key);
     },
 
-    async create(key: string, value: T, expireSeconds?: number): Promise<void> {
-      await create(table, key, value, expireSeconds ?? cacheExpired);
+    async create(key: string, value: Omit<T, AutoSetKeys>, expireSeconds?: number): Promise<void> {
+      await create(table, key, value as T, expireSeconds ?? cacheExpired);
     },
 
     async update(

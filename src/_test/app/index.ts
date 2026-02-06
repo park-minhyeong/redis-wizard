@@ -14,6 +14,17 @@ app.get("/", async (req, res) => {
 });
 
 const port = +(process.env.PORT ?? 3000);
+const redisUrl = process.env.REDIS_PORT 
+  ? `redis://localhost:${process.env.REDIS_PORT}` 
+  : process.env.REDIS_URL || "redis://localhost:6379";
+
 app.listen(port, "0.0.0.0", () => {
-	console.log(`http://localhost:${port} is listening`);
+	console.log("\n" + "=".repeat(60));
+	console.log("🚀 TEST API SERVER");
+	console.log("=".repeat(60));
+	console.log(`📍 Server URL:     http://localhost:${port}`);
+	console.log(`📍 API Endpoint:   http://localhost:${port}/api`);
+	console.log(`📍 Redis URL:      ${redisUrl.replace(/:[^:@]+@/, ":****@")}`);
+	console.log(`📍 Redis Port:     ${process.env.REDIS_PORT || "6379"}`);
+	console.log("=".repeat(60) + "\n");
 });
