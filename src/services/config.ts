@@ -241,11 +241,5 @@ export const disconnect = async (): Promise<void> => {
   }
 };
 
-// 애플리케이션 시작 시 Redis 연결 초기화
-initializeRedis().catch((error) => {
-  console.error("[Redis Wizard] Failed to initialize Redis on application startup:", {
-    message: error instanceof Error ? error.message : String(error),
-    stack: error instanceof Error ? error.stack : undefined,
-    timestamp: new Date().toISOString(),
-  });
-});
+// 모듈 import 시 즉시 연결하지 않음 — getRedisClient() 첫 호출 시 lazy connect
+// (Next.js docker build / CI 등 REDIS_URL 없는 환경에서 불필요한 초기화 오류 방지)
