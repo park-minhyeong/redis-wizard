@@ -68,13 +68,10 @@ const getPoolConfigFromEnv = (): Partial<RedisPoolConfig> => {
 const initializeRedis = async (poolConfig?: RedisPoolConfig): Promise<void> => {
   const redisUrl = process.env.REDIS_PORT ? `redis://localhost:${process.env.REDIS_PORT}` : process.env.REDIS_URL;
   if (!redisUrl) {
-    const error = new Error("Redis configuration error: REDIS_URL or REDIS_PORT environment variable is not set");
-    console.error("[Redis Wizard] Initialization failed:", error.message);
-    throw error;
+    throw new Error("Redis configuration error: REDIS_URL or REDIS_PORT environment variable is not set");
   }
 
   if (redisClient && isConnected) {
-    console.log("[Redis Wizard] Client already connected, skipping initialization");
     return;
   }
 
@@ -120,60 +117,30 @@ const initializeRedis = async (poolConfig?: RedisPoolConfig): Promise<void> => {
     ...(finalPoolConfig.maxRetriesPerRequest !== undefined && { maxRetriesPerRequest: finalPoolConfig.maxRetriesPerRequest }),
   };
 
-  console.log(`[Redis Wizard] Initializing Redis client with URL: ${redisUrl.replace(/:[^:@]+@/, ":****@")}`, {
-    poolConfig: {
-      connectTimeout: finalPoolConfig.connectTimeout,
-      keepAlive: finalPoolConfig.keepAlive,
-      keepAliveInitialDelay: finalPoolConfig.keepAliveInitialDelay,
-      lazyConnect: finalPoolConfig.lazyConnect,
-      maxRetriesPerRequest: finalPoolConfig.maxRetriesPerRequest,
-    },
-  });
-
   redisClient = createClient(clientOptions) as RedisClientType;
 
   redisClient.on("error", (err) => {
-    console.error("[Redis Wizard] Connection error occurred:", {
-      message: err.message,
-      stack: err.stack,
-      timestamp: new Date().toISOString(),
-    });
+    console.error("[Redis Wizard] Connection error:", err.message);
     isConnected = false;
   });
 
-  redisClient.on("connect", () => {
-    console.log("[Redis Wizard] Connecting to Redis server...");
-  });
-
   redisClient.on("ready", () => {
-    console.log("[Redis Wizard] Redis client connected and ready at url: " + redisUrl);
     isConnected = true;
   });
 
   redisClient.on("reconnecting", () => {
-    console.warn("[Redis Wizard] Attempting to reconnect to Redis server...", {
-      timestamp: new Date().toISOString(),
-    });
     isConnected = false;
   });
 
   redisClient.on("end", () => {
-    console.log("[Redis Wizard] Redis connection ended", {
-      timestamp: new Date().toISOString(),
-    });
     isConnected = false;
   });
 
   try {
-    console.log("[Redis Wizard] Establishing connection...");
     await redisClient.connect();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[Redis Wizard] Failed to connect to Redis:", {
-      message: errorMessage,
-      url: redisUrl.replace(/:[^:@]+@/, ":****@"),
-      timestamp: new Date().toISOString(),
-    });
+    console.error("[Redis Wizard] Failed to connect to Redis:", errorMessage);
     throw error;
   }
 };
@@ -188,13 +155,10 @@ const initializeRedis = async (poolConfig?: RedisPoolConfig): Promise<void> => {
  */
 export const getRedisClient = async (poolConfig?: RedisPoolConfig): Promise<RedisClientType> => {
   if (!redisClient || !isConnected) {
-    console.log("[Redis Wizard] Client not available, initializing...");
     await initializeRedis(poolConfig);
   }
   if (!redisClient) {
-    const error = new Error("Redis client initialization failed: client is null after initialization attempt");
-    console.error("[Redis Wizard]", error.message);
-    throw error;
+    throw new Error("Redis client initialization failed: client is null after initialization attempt");
   }
   return redisClient;
 };
@@ -208,7 +172,6 @@ export const getRedisClient = async (poolConfig?: RedisPoolConfig): Promise<Redi
  */
 export const configurePool = async (poolConfig: RedisPoolConfig): Promise<void> => {
   if (redisClient && isConnected) {
-    console.warn("[Redis Wizard] Pool configuration change requires reconnection. Disconnecting current client...");
     await disconnect();
   }
   await initializeRedis(poolConfig);
@@ -221,23 +184,17 @@ export const configurePool = async (poolConfig: RedisPoolConfig): Promise<void> 
  */
 export const disconnect = async (): Promise<void> => {
   if (redisClient && isConnected) {
-    console.log("[Redis Wizard] Disconnecting Redis client...");
     try {
       await redisClient.quit();
-      console.log("[Redis Wizard] Redis client disconnected successfully", {
-        timestamp: new Date().toISOString(),
-      });
     } catch (error) {
-      console.error("[Redis Wizard] Error during disconnection:", {
-        message: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString(),
-      });
+      console.error(
+        "[Redis Wizard] Error during disconnection:",
+        error instanceof Error ? error.message : String(error)
+      );
       throw error;
     }
     isConnected = false;
     redisClient = null;
-  } else {
-    console.log("[Redis Wizard] No active connection to disconnect");
   }
 };
 

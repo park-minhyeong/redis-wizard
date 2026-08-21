@@ -21,7 +21,6 @@ export const read = async <T = any>(
     const value = await client.get(fullKey);
 
     if (value === null) {
-      console.log(`Redis GET: key=${fullKey}, value=null`);
       return null;
     }
 
@@ -34,18 +33,14 @@ export const read = async <T = any>(
         (trimmedValue.startsWith("[") && trimmedValue.endsWith("]"))
       ) {
         try {
-          const parsed = JSON.parse(value) as T;
-          console.log(`Redis GET: key=${fullKey}, parsed successfully`);
-          return parsed;
-        } catch (parseError) {
+          return JSON.parse(value) as T;
+        } catch {
           // JSON 파싱 실패 시 원래 문자열 반환
-          console.log(`Redis GET: key=${fullKey}, JSON parse failed, returning string`);
           return value as T;
         }
       }
     }
 
-    console.log(`Redis GET: key=${fullKey}, returning raw value`);
     return value as T | null;
   } catch (error) {
     console.error(`Redis GET 오류 (key: ${fullKey}):`, error);
